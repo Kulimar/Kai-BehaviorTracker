@@ -7,7 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
     <style>
         body {
             font-family: 'Nunito', sans-serif;
@@ -24,9 +26,9 @@
         .btn-3d:active {
             transform: translateY(4px);
             border-bottom-width: 0px !important;
-            margin-bottom: 4px; /* Compensate for lost border to avoid layout shift */
+            margin-bottom: 4px;
         }
-        
+
         .btn-polite {
             background-color: #58cc02;
             border-bottom: 4px solid #58a700;
@@ -49,16 +51,11 @@
         }
         .btn-neutral:hover { background-color: #f7f7f7; color: #4b4b4b; }
 
-        /* Hide scrollbar for history area but keep functionality */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        /* Hide scrollbar but keep functionality */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Soft bouncy pop animation for adding points */
+        /* Soft bouncy pop animation */
         @keyframes pop {
             0% { transform: scale(1); }
             50% { transform: scale(1.15); }
@@ -67,6 +64,49 @@
         .animate-pop {
             animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+
+        /* Tab styles */
+        .tab-btn {
+            transition: all 0.2s ease;
+            border-bottom: 4px solid transparent;
+            color: #afafaf;
+        }
+        .tab-btn.active {
+            color: #1cb0f6;
+            border-bottom-color: #1cb0f6;
+        }
+        .tab-btn:hover:not(.active) {
+            color: #4b4b4b;
+        }
+
+        /* Chart filter pill buttons */
+        .filter-pill {
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+        .filter-pill.active {
+            background-color: #1cb0f6;
+            color: white;
+            border-color: #1cb0f6;
+        }
+
+        /* Chart view selector */
+        .view-pill {
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+        .view-pill.active {
+            background-color: #4b4b4b;
+            color: white;
+            border-color: #4b4b4b;
+        }
+
+        /* Standout day card */
+        .standout-card {
+            border-left: 4px solid;
+        }
+        .standout-polite { border-left-color: #58cc02; }
+        .standout-rude { border-left-color: #ff4b4b; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -88,27 +128,37 @@
         <input type="file" id="fileInput" accept=".json" class="hidden" onchange="handleFileImport(event)">
     </header>
 
-    <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col overflow-hidden w-full max-w-4xl mx-auto">
-        
+    <!-- Tab Bar -->
+    <nav class="bg-white flex border-b-2 border-[#e5e5e5] shrink-0">
+        <button onclick="switchTab('tracker')" id="tabTracker" class="tab-btn active flex-1 py-3 text-center font-black uppercase tracking-wider text-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-list-check"></i> Tracker
+        </button>
+        <button onclick="switchTab('charts')" id="tabCharts" class="tab-btn flex-1 py-3 text-center font-black uppercase tracking-wider text-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-chart-column"></i> Charts
+        </button>
+    </nav>
+
+    <!-- ==================== TRACKER VIEW ==================== -->
+    <main id="trackerView" class="flex-1 flex flex-col overflow-hidden w-full max-w-4xl mx-auto">
+
         <!-- Split Counters Area -->
         <div class="flex flex-row w-full p-4 gap-4 shrink-0 mt-2">
-            
+
             <!-- Polite Side -->
             <div class="flex-1 bg-white rounded-3xl border-2 border-[#e5e5e5] p-4 flex flex-col items-center justify-center relative shadow-sm">
                 <div class="text-[#58cc02] font-black uppercase tracking-wider mb-2 text-sm sm:text-lg flex items-center gap-2">
                     <i class="fa-solid fa-dove hidden sm:block"></i> Polite
                 </div>
-                
+
                 <div class="flex items-center justify-center gap-2 sm:gap-6 w-full">
                     <button onclick="removeLatest('polite')" class="btn-3d btn-neutral w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl font-bold">
                         <i class="fa-solid fa-minus"></i>
                     </button>
-                    
+
                     <div id="politeCounter" class="text-5xl sm:text-7xl font-black text-[#58cc02] min-w-[60px] sm:min-w-[100px] text-center transition-transform">
                         0
                     </div>
-                    
+
                     <button onclick="addLog('polite', '')" class="btn-3d bg-[#58cc02] hover:bg-[#46a302] border-b-4 border-[#58a700] text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl font-bold">
                         <i class="fa-solid fa-plus"></i>
                     </button>
@@ -120,16 +170,16 @@
                 <div class="text-[#ff4b4b] font-black uppercase tracking-wider mb-2 text-sm sm:text-lg flex items-center gap-2">
                     <i class="fa-solid fa-bolt hidden sm:block"></i> Rude
                 </div>
-                
+
                 <div class="flex items-center justify-center gap-2 sm:gap-6 w-full">
                     <button onclick="removeLatest('rude')" class="btn-3d btn-neutral w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl font-bold">
                         <i class="fa-solid fa-minus"></i>
                     </button>
-                    
+
                     <div id="rudeCounter" class="text-5xl sm:text-7xl font-black text-[#ff4b4b] min-w-[60px] sm:min-w-[100px] text-center transition-transform">
                         0
                     </div>
-                    
+
                     <button onclick="addLog('rude', '')" class="btn-3d bg-[#ff4b4b] hover:bg-[#e03a3a] border-b-4 border-[#ea2b2b] text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl font-bold">
                         <i class="fa-solid fa-plus"></i>
                     </button>
@@ -143,7 +193,7 @@
             <div class="bg-white rounded-2xl border-2 border-[#e5e5e5] p-3 shadow-sm mb-4 focus-within:border-gray-300 transition-colors">
                 <textarea id="noteInput" rows="2" class="w-full resize-none outline-none text-[#4b4b4b] text-lg placeholder-[#afafaf] bg-transparent" placeholder="What happened? Add context here..."></textarea>
             </div>
-            
+
             <div class="flex gap-4">
                 <button onclick="handleMainAction('polite')" class="btn-3d btn-polite flex-1 py-4 rounded-2xl text-xl font-black uppercase tracking-wider flex items-center justify-center gap-2">
                     <i class="fa-solid fa-thumbs-up"></i> Log Polite
@@ -162,12 +212,111 @@
             <div id="historyList" class="flex flex-col gap-3 pb-8">
                 <!-- History items injected here via JS -->
             </div>
-            
+
             <!-- Empty State -->
             <div id="emptyState" class="hidden flex-col items-center justify-center text-[#afafaf] py-10 opacity-70">
                 <i class="fa-solid fa-ghost text-5xl mb-4"></i>
                 <p class="font-bold text-lg">No history yet.</p>
                 <p class="text-sm">Log some behavior above!</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ==================== CHARTS VIEW ==================== -->
+    <main id="chartsView" class="flex-1 flex flex-col overflow-hidden w-full max-w-4xl mx-auto hidden">
+
+        <!-- Date Range Filter Bar -->
+        <div class="p-4 pb-2 shrink-0">
+            <div class="flex flex-wrap gap-2 mb-3">
+                <button onclick="setDateFilter('7d')" data-filter="7d" class="filter-pill active px-4 py-2 rounded-full border-2 border-[#e5e5e5] text-sm font-bold">
+                    Last 7 Days
+                </button>
+                <button onclick="setDateFilter('30d')" data-filter="30d" class="filter-pill px-4 py-2 rounded-full border-2 border-[#e5e5e5] text-sm font-bold">
+                    Last 30 Days
+                </button>
+                <button onclick="setDateFilter('month')" data-filter="month" class="filter-pill px-4 py-2 rounded-full border-2 border-[#e5e5e5] text-sm font-bold">
+                    This Month
+                </button>
+                <button onclick="setDateFilter('year')" data-filter="year" class="filter-pill px-4 py-2 rounded-full border-2 border-[#e5e5e5] text-sm font-bold">
+                    This Year
+                </button>
+                <button onclick="setDateFilter('custom')" data-filter="custom" class="filter-pill px-4 py-2 rounded-full border-2 border-[#e5e5e5] text-sm font-bold">
+                    <i class="fa-solid fa-calendar-days mr-1"></i> Custom
+                </button>
+            </div>
+
+            <!-- Custom Date Range (hidden by default) -->
+            <div id="customDateRange" class="hidden flex gap-3 items-center mb-3">
+                <input type="date" id="dateFrom" class="border-2 border-[#e5e5e5] rounded-xl px-3 py-2 text-sm font-bold bg-white outline-none focus:border-[#1cb0f6]">
+                <span class="text-[#afafaf] font-bold">to</span>
+                <input type="date" id="dateTo" class="border-2 border-[#e5e5e5] rounded-xl px-3 py-2 text-sm font-bold bg-white outline-none focus:border-[#1cb0f6]">
+                <button onclick="applyCustomDateFilter()" class="btn-3d px-4 py-2 rounded-xl bg-[#1cb0f6] border-b-4 border-[#1899d6] text-white font-bold text-sm">
+                    Apply
+                </button>
+            </div>
+        </div>
+
+        <!-- Chart View Selector -->
+        <div class="px-4 pb-3 shrink-0">
+            <div class="flex gap-2">
+                <button onclick="setChartView('daily')" data-view="daily" class="view-pill active px-4 py-2 rounded-xl border-2 border-[#e5e5e5] text-sm font-bold flex items-center gap-1">
+                    <i class="fa-solid fa-chart-column"></i> Daily
+                </button>
+                <button onclick="setChartView('averages')" data-view="averages" class="view-pill px-4 py-2 rounded-xl border-2 border-[#e5e5e5] text-sm font-bold flex items-center gap-1">
+                    <i class="fa-solid fa-chart-line"></i> Averages
+                </button>
+                <button onclick="setChartView('standout')" data-view="standout" class="view-pill px-4 py-2 rounded-xl border-2 border-[#e5e5e5] text-sm font-bold flex items-center gap-1">
+                    <i class="fa-solid fa-star"></i> Standout
+                </button>
+            </div>
+        </div>
+
+        <!-- Chart Area -->
+        <div class="flex-1 overflow-y-auto no-scrollbar px-4 pb-4">
+
+            <!-- Chart Container -->
+            <div class="bg-white rounded-3xl border-2 border-[#e5e5e5] p-4 shadow-sm mb-4">
+                <div id="chartWrapper" style="position: relative; min-height: 300px;">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Summary Stats -->
+            <div id="chartSummary" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div class="bg-white rounded-2xl border-2 border-[#e5e5e5] p-3 text-center shadow-sm">
+                    <div class="text-[#afafaf] text-xs font-bold uppercase tracking-wider">Total Polite</div>
+                    <div id="statPolite" class="text-2xl font-black text-[#58cc02]">0</div>
+                </div>
+                <div class="bg-white rounded-2xl border-2 border-[#e5e5e5] p-3 text-center shadow-sm">
+                    <div class="text-[#afafaf] text-xs font-bold uppercase tracking-wider">Total Rude</div>
+                    <div id="statRude" class="text-2xl font-black text-[#ff4b4b]">0</div>
+                </div>
+                <div class="bg-white rounded-2xl border-2 border-[#e5e5e5] p-3 text-center shadow-sm">
+                    <div class="text-[#afafaf] text-xs font-bold uppercase tracking-wider">Avg / Day</div>
+                    <div id="statAvg" class="text-2xl font-black text-[#1cb0f6]">0</div>
+                </div>
+                <div class="bg-white rounded-2xl border-2 border-[#e5e5e5] p-3 text-center shadow-sm">
+                    <div class="text-[#afafaf] text-xs font-bold uppercase tracking-wider">Best Day</div>
+                    <div id="statBest" class="text-lg font-black text-[#58cc02]">--</div>
+                </div>
+            </div>
+
+            <!-- Standout Days List (only visible in standout view) -->
+            <div id="standoutList" class="hidden flex flex-col gap-3 mb-4">
+                <h3 class="text-[#afafaf] font-bold uppercase tracking-wider text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-star"></i> Notable Days
+                </h3>
+                <div id="standoutItems" class="flex flex-col gap-3">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+
+            <!-- Chart Empty State -->
+            <div id="chartEmptyState" class="hidden flex-col items-center justify-center text-[#afafaf] py-10 opacity-70">
+                <i class="fa-solid fa-chart-simple text-5xl mb-4"></i>
+                <p class="font-bold text-lg">No data for this period.</p>
+                <p class="text-sm">Log some behavior on the Tracker tab!</p>
             </div>
         </div>
 
@@ -184,17 +333,23 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, onSnapshot, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global State
+        // ===== GLOBAL STATE =====
         window.appState = {
             logs: [],
             user: null,
             db: null,
             collectionRef: null,
             unsubscribe: null,
-            appId: typeof __app_id !== 'undefined' ? __app_id : 'default-kai-behavior-app'
+            appId: typeof __app_id !== 'undefined' ? __app_id : 'default-kai-behavior-app',
+            currentTab: 'tracker',
+            dateFilter: '7d',
+            chartView: 'daily',
+            customFrom: null,
+            customTo: null,
+            chartInstance: null
         };
 
-        // DOM Elements
+        // ===== DOM ELEMENTS =====
         const politeCounterEl = document.getElementById('politeCounter');
         const rudeCounterEl = document.getElementById('rudeCounter');
         const noteInputEl = document.getElementById('noteInput');
@@ -203,7 +358,7 @@
         const toastEl = document.getElementById('toast');
         const toastMsgEl = document.getElementById('toastMsg');
 
-        // Toast Helper
+        // ===== TOAST HELPER =====
         window.showToast = (msg, isError = false) => {
             toastMsgEl.textContent = msg;
             if(isError) {
@@ -219,14 +374,551 @@
             }, 2500);
         };
 
-        // Setup Firebase
+        // ===== TAB SWITCHING =====
+        window.switchTab = (tab) => {
+            window.appState.currentTab = tab;
+            const trackerView = document.getElementById('trackerView');
+            const chartsView = document.getElementById('chartsView');
+            const tabTracker = document.getElementById('tabTracker');
+            const tabCharts = document.getElementById('tabCharts');
+
+            if (tab === 'tracker') {
+                trackerView.classList.remove('hidden');
+                chartsView.classList.add('hidden');
+                tabTracker.classList.add('active');
+                tabCharts.classList.remove('active');
+            } else {
+                trackerView.classList.add('hidden');
+                chartsView.classList.remove('hidden');
+                tabTracker.classList.remove('active');
+                tabCharts.classList.add('active');
+                renderCharts();
+            }
+        };
+
+        // ===== DATE FILTER =====
+        window.setDateFilter = (filter) => {
+            window.appState.dateFilter = filter;
+            document.querySelectorAll('.filter-pill').forEach(el => el.classList.remove('active'));
+            document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+
+            const customRange = document.getElementById('customDateRange');
+            if (filter === 'custom') {
+                customRange.classList.remove('hidden');
+            } else {
+                customRange.classList.add('hidden');
+                renderCharts();
+            }
+        };
+
+        window.applyCustomDateFilter = () => {
+            const from = document.getElementById('dateFrom').value;
+            const to = document.getElementById('dateTo').value;
+            if (!from || !to) {
+                showToast('Please select both dates', true);
+                return;
+            }
+            window.appState.customFrom = new Date(from);
+            window.appState.customTo = new Date(to);
+            window.appState.customTo.setHours(23, 59, 59, 999);
+            renderCharts();
+        };
+
+        // ===== CHART VIEW SELECTOR =====
+        window.setChartView = (view) => {
+            window.appState.chartView = view;
+            document.querySelectorAll('.view-pill').forEach(el => el.classList.remove('active'));
+            document.querySelector(`[data-view="${view}"]`).classList.add('active');
+
+            const standoutList = document.getElementById('standoutList');
+            if (view === 'standout') {
+                standoutList.classList.remove('hidden');
+            } else {
+                standoutList.classList.add('hidden');
+            }
+            renderCharts();
+        };
+
+        // ===== DATE HELPERS =====
+        function getDateRange() {
+            const now = new Date();
+            let start, end;
+            end = new Date(now);
+            end.setHours(23, 59, 59, 999);
+
+            switch (window.appState.dateFilter) {
+                case '7d':
+                    start = new Date(now);
+                    start.setDate(start.getDate() - 6);
+                    break;
+                case '30d':
+                    start = new Date(now);
+                    start.setDate(start.getDate() - 29);
+                    break;
+                case 'month':
+                    start = new Date(now.getFullYear(), now.getMonth(), 1);
+                    break;
+                case 'year':
+                    start = new Date(now.getFullYear(), 0, 1);
+                    break;
+                case 'custom':
+                    start = window.appState.customFrom || new Date(now.getTime() - 6 * 86400000);
+                    end = window.appState.customTo || end;
+                    break;
+                default:
+                    start = new Date(now);
+                    start.setDate(start.getDate() - 6);
+            }
+            start.setHours(0, 0, 0, 0);
+            return { start, end };
+        }
+
+        function toDateKey(ts) {
+            const d = new Date(ts);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function formatDateLabel(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
+
+        // ===== AGGREGATE LOGS BY DAY =====
+        function aggregateByDay(logs, start, end) {
+            // Build a map of all days in range
+            const dayMap = {};
+            const cursor = new Date(start);
+            while (cursor <= end) {
+                const key = toDateKey(cursor.getTime());
+                dayMap[key] = { polite: 0, rude: 0 };
+                cursor.setDate(cursor.getDate() + 1);
+            }
+
+            // Fill in counts
+            logs.forEach(log => {
+                const key = toDateKey(log.timestamp);
+                if (dayMap[key]) {
+                    if (log.type === 'polite') dayMap[key].polite++;
+                    else if (log.type === 'rude') dayMap[key].rude++;
+                }
+            });
+
+            // Convert to sorted arrays
+            const sortedKeys = Object.keys(dayMap).sort();
+            return {
+                labels: sortedKeys.map(formatDateLabel),
+                dateKeys: sortedKeys,
+                polite: sortedKeys.map(k => dayMap[k].polite),
+                rude: sortedKeys.map(k => dayMap[k].rude)
+            };
+        }
+
+        // ===== CHART RENDERING =====
+        function renderCharts() {
+            if (window.appState.currentTab !== 'charts') return;
+
+            const { start, end } = getDateRange();
+            const filteredLogs = window.appState.logs.filter(
+                log => log.timestamp >= start.getTime() && log.timestamp <= end.getTime()
+            );
+
+            const chartEmptyState = document.getElementById('chartEmptyState');
+            const chartWrapper = document.getElementById('chartWrapper');
+            const chartSummary = document.getElementById('chartSummary');
+
+            if (filteredLogs.length === 0) {
+                chartEmptyState.classList.remove('hidden');
+                chartEmptyState.classList.add('flex');
+                chartWrapper.style.display = 'none';
+                chartSummary.style.display = 'none';
+                if (window.appState.chartInstance) {
+                    window.appState.chartInstance.destroy();
+                    window.appState.chartInstance = null;
+                }
+                return;
+            }
+
+            chartEmptyState.classList.add('hidden');
+            chartEmptyState.classList.remove('flex');
+            chartWrapper.style.display = 'block';
+            chartSummary.style.display = 'grid';
+
+            const data = aggregateByDay(filteredLogs, start, end);
+
+            // Update summary stats
+            const totalPolite = data.polite.reduce((a, b) => a + b, 0);
+            const totalRude = data.rude.reduce((a, b) => a + b, 0);
+            const daysWithData = data.polite.filter((p, i) => p > 0 || data.rude[i] > 0).length;
+            const avgPerDay = daysWithData > 0 ? ((totalPolite + totalRude) / daysWithData).toFixed(1) : 0;
+
+            // Find best day (highest polite, lowest rude ratio)
+            let bestDayIdx = -1;
+            let bestScore = -Infinity;
+            data.polite.forEach((p, i) => {
+                const score = p - data.rude[i];
+                if ((p + data.rude[i]) > 0 && score > bestScore) {
+                    bestScore = score;
+                    bestDayIdx = i;
+                }
+            });
+
+            document.getElementById('statPolite').textContent = totalPolite;
+            document.getElementById('statRude').textContent = totalRude;
+            document.getElementById('statAvg').textContent = avgPerDay;
+            document.getElementById('statBest').textContent = bestDayIdx >= 0 ? data.labels[bestDayIdx] : '--';
+
+            // Destroy previous chart
+            if (window.appState.chartInstance) {
+                window.appState.chartInstance.destroy();
+                window.appState.chartInstance = null;
+            }
+
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            const view = window.appState.chartView;
+
+            if (view === 'daily') {
+                renderDailyChart(ctx, data);
+            } else if (view === 'averages') {
+                renderAveragesChart(ctx, data);
+            } else if (view === 'standout') {
+                renderStandoutChart(ctx, data);
+            }
+        }
+
+        // ===== DAILY STACKED BAR CHART =====
+        function renderDailyChart(ctx, data) {
+            window.appState.chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Polite',
+                            data: data.polite,
+                            backgroundColor: '#58cc02',
+                            borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 6, bottomRight: 6 },
+                            borderSkipped: false,
+                            order: 2
+                        },
+                        {
+                            label: 'Rude',
+                            data: data.rude,
+                            backgroundColor: '#ff4b4b',
+                            borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
+                            borderSkipped: false,
+                            order: 1
+                        }
+                    ]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: {
+                                font: { family: 'Nunito', weight: 'bold', size: 11 },
+                                color: '#afafaf',
+                                maxRotation: 45,
+                                minRotation: 0
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: { color: '#f0f0f0' },
+                            ticks: {
+                                font: { family: 'Nunito', weight: 'bold', size: 12 },
+                                color: '#afafaf',
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: { family: 'Nunito', weight: 'bold', size: 13 },
+                                usePointStyle: true,
+                                pointStyle: 'rectRounded',
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#4b4b4b',
+                            titleFont: { family: 'Nunito', weight: 'bold' },
+                            bodyFont: { family: 'Nunito' },
+                            cornerRadius: 12,
+                            padding: 12
+                        },
+                        datalabels: {
+                            display: function(context) {
+                                return context.dataset.data[context.dataIndex] > 0;
+                            },
+                            color: '#ffffff',
+                            font: { family: 'Nunito', weight: '800', size: 13 },
+                            anchor: 'center',
+                            align: 'center'
+                        }
+                    }
+                }
+            });
+        }
+
+        // ===== AVERAGES CHART =====
+        function renderAveragesChart(ctx, data) {
+            // Compute 7-day rolling average (or smaller window if less data)
+            const windowSize = Math.min(7, data.polite.length);
+            const politeAvg = [];
+            const rudeAvg = [];
+
+            for (let i = 0; i < data.polite.length; i++) {
+                const start = Math.max(0, i - windowSize + 1);
+                const sliceP = data.polite.slice(start, i + 1);
+                const sliceR = data.rude.slice(start, i + 1);
+                politeAvg.push(+(sliceP.reduce((a, b) => a + b, 0) / sliceP.length).toFixed(1));
+                rudeAvg.push(+(sliceR.reduce((a, b) => a + b, 0) / sliceR.length).toFixed(1));
+            }
+
+            window.appState.chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Polite (7-day avg)',
+                            data: politeAvg,
+                            borderColor: '#58cc02',
+                            backgroundColor: 'rgba(88, 204, 2, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#58cc02',
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'Rude (7-day avg)',
+                            data: rudeAvg,
+                            borderColor: '#ff4b4b',
+                            backgroundColor: 'rgba(255, 75, 75, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#ff4b4b',
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { family: 'Nunito', weight: 'bold', size: 11 },
+                                color: '#afafaf',
+                                maxRotation: 45,
+                                minRotation: 0
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f0f0f0' },
+                            ticks: {
+                                font: { family: 'Nunito', weight: 'bold', size: 12 },
+                                color: '#afafaf'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: { family: 'Nunito', weight: 'bold', size: 13 },
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#4b4b4b',
+                            titleFont: { family: 'Nunito', weight: 'bold' },
+                            bodyFont: { family: 'Nunito' },
+                            cornerRadius: 12,
+                            padding: 12
+                        },
+                        datalabels: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // ===== STANDOUT DAYS CHART =====
+        function renderStandoutChart(ctx, data) {
+            // Detect standout days: days where polite or rude are > 1.5x the average
+            const avgPolite = data.polite.reduce((a, b) => a + b, 0) / Math.max(data.polite.length, 1);
+            const avgRude = data.rude.reduce((a, b) => a + b, 0) / Math.max(data.rude.length, 1);
+            const threshold = 1.5;
+
+            const politeHighlight = data.polite.map(v => v > avgPolite * threshold && v > 0 ? v : 0);
+            const rudeHighlight = data.rude.map(v => v > avgRude * threshold && v > 0 ? v : 0);
+            const politeNormal = data.polite.map((v, i) => politeHighlight[i] > 0 ? 0 : v);
+            const rudeNormal = data.rude.map((v, i) => rudeHighlight[i] > 0 ? 0 : v);
+
+            // Populate standout items list
+            const standoutItems = document.getElementById('standoutItems');
+            standoutItems.innerHTML = '';
+
+            const standouts = [];
+            data.polite.forEach((p, i) => {
+                if (p > avgPolite * threshold && p > 0) {
+                    standouts.push({ date: data.labels[i], dateKey: data.dateKeys[i], type: 'polite', count: p, label: 'Great day!' });
+                }
+                if (data.rude[i] > avgRude * threshold && data.rude[i] > 0) {
+                    standouts.push({ date: data.labels[i], dateKey: data.dateKeys[i], type: 'rude', count: data.rude[i], label: 'Tough day' });
+                }
+            });
+
+            if (standouts.length === 0) {
+                standoutItems.innerHTML = `
+                    <div class="text-[#afafaf] text-center py-4 font-bold">
+                        <i class="fa-solid fa-circle-check mr-1"></i> No extreme standout days in this period. Consistent behavior!
+                    </div>`;
+            } else {
+                standouts.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+                standouts.forEach(s => {
+                    const isPolite = s.type === 'polite';
+                    const card = document.createElement('div');
+                    card.className = `standout-card bg-white rounded-xl border-2 border-[#e5e5e5] p-3 flex items-center gap-3 shadow-sm ${isPolite ? 'standout-polite' : 'standout-rude'}`;
+                    card.innerHTML = `
+                        <div class="w-10 h-10 rounded-full flex-shrink-0 ${isPolite ? 'bg-[#58cc02]' : 'bg-[#ff4b4b]'} text-white flex items-center justify-center text-lg">
+                            <i class="fa-solid ${isPolite ? 'fa-trophy' : 'fa-triangle-exclamation'}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-black text-sm">${s.date} <span class="text-[#afafaf]">- ${s.label}</span></div>
+                            <div class="text-sm ${isPolite ? 'text-[#58cc02]' : 'text-[#ff4b4b]'} font-bold">
+                                ${s.count} ${s.type} choice${s.count !== 1 ? 's' : ''} (avg: ${isPolite ? avgPolite.toFixed(1) : avgRude.toFixed(1)})
+                            </div>
+                        </div>
+                    `;
+                    standoutItems.appendChild(card);
+                });
+            }
+
+            // Chart with highlighted bars
+            window.appState.chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Polite',
+                            data: politeNormal,
+                            backgroundColor: 'rgba(88, 204, 2, 0.4)',
+                            borderRadius: 6,
+                            borderSkipped: false
+                        },
+                        {
+                            label: 'Polite (standout)',
+                            data: politeHighlight,
+                            backgroundColor: '#58cc02',
+                            borderRadius: 6,
+                            borderSkipped: false,
+                            borderWidth: 2,
+                            borderColor: '#46a302'
+                        },
+                        {
+                            label: 'Rude',
+                            data: rudeNormal,
+                            backgroundColor: 'rgba(255, 75, 75, 0.4)',
+                            borderRadius: 6,
+                            borderSkipped: false
+                        },
+                        {
+                            label: 'Rude (standout)',
+                            data: rudeHighlight,
+                            backgroundColor: '#ff4b4b',
+                            borderRadius: 6,
+                            borderSkipped: false,
+                            borderWidth: 2,
+                            borderColor: '#ea2b2b'
+                        }
+                    ]
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { family: 'Nunito', weight: 'bold', size: 11 },
+                                color: '#afafaf',
+                                maxRotation: 45,
+                                minRotation: 0
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f0f0f0' },
+                            ticks: {
+                                font: { family: 'Nunito', weight: 'bold', size: 12 },
+                                color: '#afafaf',
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: { family: 'Nunito', weight: 'bold', size: 12 },
+                                usePointStyle: true,
+                                pointStyle: 'rectRounded',
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#4b4b4b',
+                            titleFont: { family: 'Nunito', weight: 'bold' },
+                            bodyFont: { family: 'Nunito' },
+                            cornerRadius: 12,
+                            padding: 12
+                        },
+                        datalabels: {
+                            display: function(context) {
+                                return context.dataset.data[context.dataIndex] > 0;
+                            },
+                            color: function(context) {
+                                return context.datasetIndex <= 1 ? '#2d7a00' : '#b30000';
+                            },
+                            font: { family: 'Nunito', weight: '800', size: 12 },
+                            anchor: 'end',
+                            align: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        // ===== FIREBASE SETUP =====
         async function initFirebase() {
             try {
                 let firebaseConfig;
                 if (typeof __firebase_config !== 'undefined') {
                     firebaseConfig = JSON.parse(__firebase_config);
                 } else {
-                    // Fallback to local-only mode if no config exists
                     console.log("No Firebase config found. Running in local-only memory mode.");
                     render();
                     return;
@@ -236,7 +928,6 @@
                 const auth = getAuth(app);
                 window.appState.db = getFirestore(app);
 
-                // Authentication Protocol
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -255,19 +946,15 @@
             } catch (error) {
                 console.error("Firebase init error:", error);
                 showToast("Running in offline mode", true);
-                render(); // Render empty state
+                render();
             }
         }
 
-        // Setup Firestore Listener
         function setupDataListener() {
             if (!window.appState.user || !window.appState.db) return;
 
-            // STRICT PATH RULE: /artifacts/{appId}/users/{userId}/{collectionName}
             const path = `artifacts/${window.appState.appId}/users/${window.appState.user.uid}/behavior_logs`;
             window.appState.collectionRef = collection(window.appState.db, path);
-            
-            // STRICT QUERY RULE: No complex queries, fetch all and sort in memory
             const q = query(window.appState.collectionRef);
 
             if (window.appState.unsubscribe) window.appState.unsubscribe();
@@ -277,8 +964,6 @@
                 snapshot.forEach(doc => {
                     fetchedLogs.push({ id: doc.id, ...doc.data() });
                 });
-                
-                // Sort in memory (newest first)
                 window.appState.logs = fetchedLogs.sort((a, b) => b.timestamp - a.timestamp);
                 render();
             }, (error) => {
@@ -287,18 +972,13 @@
             });
         }
 
-        // Add a Log Entry
+        // ===== LOG OPERATIONS =====
         window.addLog = async (type, note = '') => {
-            const newLog = {
-                type: type,
-                note: note,
-                timestamp: Date.now()
-            };
+            const newLog = { type, note, timestamp: Date.now() };
 
-            // Trigger visual animation immediately
             const counterEl = type === 'polite' ? politeCounterEl : rudeCounterEl;
             counterEl.classList.remove('animate-pop');
-            void counterEl.offsetWidth; // Trigger reflow
+            void counterEl.offsetWidth;
             counterEl.classList.add('animate-pop');
 
             if (window.appState.collectionRef && window.appState.user) {
@@ -309,20 +989,15 @@
                     showToast("Failed to save entry", true);
                 }
             } else {
-                // Local fallback
                 newLog.id = 'local_' + Date.now();
                 window.appState.logs.unshift(newLog);
                 render();
             }
         };
 
-        // Remove the latest log of a specific type (Minus button functionality)
         window.removeLatest = async (type) => {
             const latestLog = window.appState.logs.find(log => log.type === type);
-            if (!latestLog) {
-                showToast(`No ${type} logs to remove.`);
-                return;
-            }
+            if (!latestLog) { showToast(`No ${type} logs to remove.`); return; }
 
             if (window.appState.db && window.appState.user && !latestLog.id.startsWith('local_')) {
                 try {
@@ -333,13 +1008,11 @@
                     showToast("Failed to remove entry", true);
                 }
             } else {
-                // Local fallback
                 window.appState.logs = window.appState.logs.filter(log => log.id !== latestLog.id);
                 render();
             }
         };
 
-        // Delete a specific log from history view
         window.deleteSpecificLog = async (id) => {
             if (window.appState.db && window.appState.user && !id.startsWith('local_')) {
                 try {
@@ -357,33 +1030,20 @@
             }
         };
 
-        // Main Action Button Handler
         window.handleMainAction = (type) => {
             const note = noteInputEl.value.trim();
             addLog(type, note);
-            noteInputEl.value = ''; // Clear input
-            
-            // Remove focus to hide mobile keyboard instantly
+            noteInputEl.value = '';
             noteInputEl.blur();
         };
 
-        // Export Data
+        // ===== EXPORT / IMPORT =====
         window.exportData = () => {
-            if (window.appState.logs.length === 0) {
-                showToast("No data to export");
-                return;
-            }
-            // Strip out document IDs to keep pure JSON data
-            const cleanData = window.appState.logs.map(log => ({
-                type: log.type,
-                note: log.note,
-                timestamp: log.timestamp
-            }));
-            
+            if (window.appState.logs.length === 0) { showToast("No data to export"); return; }
+            const cleanData = window.appState.logs.map(log => ({ type: log.type, note: log.note, timestamp: log.timestamp }));
             const dataStr = JSON.stringify(cleanData, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
-            
             const a = document.createElement('a');
             a.href = url;
             a.download = `Kai_Behavior_Export_${new Date().toISOString().split('T')[0]}.json`;
@@ -391,50 +1051,32 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
             showToast("Export successful!");
         };
 
-        // Import Data (Trigger)
-        window.triggerImport = () => {
-            document.getElementById('fileInput').click();
-        };
+        window.triggerImport = () => { document.getElementById('fileInput').click(); };
 
-        // Handle File Import
         window.handleFileImport = async (event) => {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = async (e) => {
                 try {
                     const importedData = JSON.parse(e.target.result);
                     if (!Array.isArray(importedData)) throw new Error("Invalid format");
-
                     let importCount = 0;
-                    // We upload to Firebase if available, otherwise just inject locally
                     if (window.appState.collectionRef && window.appState.user) {
                         showToast("Importing data...");
                         for (const item of importedData) {
                             if(item.type && item.timestamp) {
-                                await addDoc(window.appState.collectionRef, {
-                                    type: item.type,
-                                    note: item.note || '',
-                                    timestamp: item.timestamp
-                                });
+                                await addDoc(window.appState.collectionRef, { type: item.type, note: item.note || '', timestamp: item.timestamp });
                                 importCount++;
                             }
                         }
                     } else {
-                        // Local import fallback
                         importedData.forEach(item => {
                             if(item.type && item.timestamp) {
-                                window.appState.logs.push({
-                                    id: 'local_' + Math.random().toString(36).substr(2, 9),
-                                    type: item.type,
-                                    note: item.note || '',
-                                    timestamp: item.timestamp
-                                });
+                                window.appState.logs.push({ id: 'local_' + Math.random().toString(36).substr(2, 9), type: item.type, note: item.note || '', timestamp: item.timestamp });
                                 importCount++;
                             }
                         });
@@ -446,27 +1088,22 @@
                     console.error(err);
                     showToast("Invalid JSON file", true);
                 }
-                // Reset file input
                 event.target.value = '';
             };
             reader.readAsText(file);
         };
 
-        // UI Render Function
+        // ===== UI RENDER =====
         function render() {
             const logs = window.appState.logs;
-
-            // Calculate totals
             const politeCount = logs.filter(l => l.type === 'polite').length;
             const rudeCount = logs.filter(l => l.type === 'rude').length;
 
-            // Update DOM counters
             politeCounterEl.textContent = politeCount;
             rudeCounterEl.textContent = rudeCount;
 
             // Render History
             historyListEl.innerHTML = '';
-            
             if (logs.length === 0) {
                 emptyStateEl.classList.remove('hidden');
                 emptyStateEl.classList.add('flex');
@@ -476,10 +1113,9 @@
 
                 logs.forEach(log => {
                     const isPolite = log.type === 'polite';
-                    
                     const card = document.createElement('div');
                     card.className = "bg-white rounded-2xl border-2 border-[#e5e5e5] p-3 flex items-center gap-4 shadow-sm relative";
-                    
+
                     const iconBg = isPolite ? 'bg-[#58cc02]' : 'bg-[#ff4b4b]';
                     const iconClass = isPolite ? 'fa-thumbs-up' : 'fa-thumbs-down';
                     const dateObj = new Date(log.timestamp);
@@ -510,9 +1146,14 @@
                     historyListEl.appendChild(card);
                 });
             }
+
+            // Also update charts if charts tab is active
+            if (window.appState.currentTab === 'charts') {
+                renderCharts();
+            }
         }
 
-        // Initialize App
+        // ===== INIT =====
         window.onload = () => {
             initFirebase();
         };
