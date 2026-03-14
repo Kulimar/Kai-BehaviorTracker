@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"f:/SedaHQ_OmenComputer/Documents/Seda_Files/IPD/AI/CodexProjects/Kai/BehaviorTracker\" status)",
+      "Bash(git config:*)"
+    ]
+  }
+}

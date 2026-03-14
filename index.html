@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kai's Behavior Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f7f7f7;
+            color: #4b4b4b;
+            overscroll-behavior-y: none;
+        }
+
+        /* Duolingo-style 3D Button Effects */
+        .btn-3d {
+            transition: all 0.1s ease;
+            position: relative;
+        }
+        .btn-3d:active {
+            transform: translateY(4px);
+            border-bottom-width: 0px !important;
+            margin-bottom: 4px; /* Compensate for lost border to avoid layout shift */
+        }
+        
+        .btn-polite {
+            background-color: #58cc02;
+            border-bottom: 4px solid #58a700;
+            color: white;
+        }
+        .btn-polite:hover { background-color: #46a302; }
+
+        .btn-rude {
+            background-color: #ff4b4b;
+            border-bottom: 4px solid #ea2b2b;
+            color: white;
+        }
+        .btn-rude:hover { background-color: #e03a3a; }
+
+        .btn-neutral {
+            background-color: #ffffff;
+            border: 2px solid #e5e5e5;
+            border-bottom: 4px solid #e5e5e5;
+            color: #afafaf;
+        }
+        .btn-neutral:hover { background-color: #f7f7f7; color: #4b4b4b; }
+
+        /* Hide scrollbar for history area but keep functionality */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Soft bouncy pop animation for adding points */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop {
+            animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white px-6 py-4 flex justify-between items-center border-b-2 border-[#e5e5e5] z-10 shrink-0">
+        <h1 class="text-2xl font-black text-[#afafaf] tracking-wide flex items-center gap-2">
+            <i class="fa-solid fa-face-smile-beam text-[#58cc02]"></i>
+            Kai's Behavior
+        </h1>
+        <div class="flex gap-2">
+            <button onclick="triggerImport()" class="btn-3d btn-neutral w-10 h-10 rounded-xl flex items-center justify-center text-lg" aria-label="Import Data">
+                <i class="fa-solid fa-file-import"></i>
+            </button>
+            <button onclick="exportData()" class="btn-3d btn-neutral w-10 h-10 rounded-xl flex items-center justify-center text-lg" aria-label="Export Data">
+                <i class="fa-solid fa-file-export"></i>
+            </button>
+        </div>
+        <input type="file" id="fileInput" accept=".json" class="hidden" onchange="handleFileImport(event)">
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col overflow-hidden w-full max-w-4xl mx-auto">
+        
+        <!-- Split Counters Area -->
+        <div class="flex flex-row w-full p-4 gap-4 shrink-0 mt-2">
+            
+            <!-- Polite Side -->
+            <div class="flex-1 bg-white rounded-3xl border-2 border-[#e5e5e5] p-4 flex flex-col items-center justify-center relative shadow-sm">
+                <div class="text-[#58cc02] font-black uppercase tracking-wider mb-2 text-sm sm:text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-dove hidden sm:block"></i> Polite
+                </div>
+                
+                <div class="flex items-center justify-center gap-2 sm:gap-6 w-full">
+                    <button onclick="removeLatest('polite')" class="btn-3d btn-neutral w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    
+                    <div id="politeCounter" class="text-5xl sm:text-7xl font-black text-[#58cc02] min-w-[60px] sm:min-w-[100px] text-center transition-transform">
+                        0
+                    </div>
+                    
+                    <button onclick="addLog('polite', '')" class="btn-3d bg-[#58cc02] hover:bg-[#46a302] border-b-4 border-[#58a700] text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Rude Side -->
+            <div class="flex-1 bg-white rounded-3xl border-2 border-[#e5e5e5] p-4 flex flex-col items-center justify-center relative shadow-sm">
+                <div class="text-[#ff4b4b] font-black uppercase tracking-wider mb-2 text-sm sm:text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-bolt hidden sm:block"></i> Rude
+                </div>
+                
+                <div class="flex items-center justify-center gap-2 sm:gap-6 w-full">
+                    <button onclick="removeLatest('rude')" class="btn-3d btn-neutral w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    
+                    <div id="rudeCounter" class="text-5xl sm:text-7xl font-black text-[#ff4b4b] min-w-[60px] sm:min-w-[100px] text-center transition-transform">
+                        0
+                    </div>
+                    
+                    <button onclick="addLog('rude', '')" class="btn-3d bg-[#ff4b4b] hover:bg-[#e03a3a] border-b-4 border-[#ea2b2b] text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Action Input Area -->
+        <div class="px-4 pb-4 shrink-0 border-b-2 border-[#e5e5e5] shadow-sm bg-[#f7f7f7] z-10">
+            <div class="bg-white rounded-2xl border-2 border-[#e5e5e5] p-3 shadow-sm mb-4 focus-within:border-gray-300 transition-colors">
+                <textarea id="noteInput" rows="2" class="w-full resize-none outline-none text-[#4b4b4b] text-lg placeholder-[#afafaf] bg-transparent" placeholder="What happened? Add context here..."></textarea>
+            </div>
+            
+            <div class="flex gap-4">
+                <button onclick="handleMainAction('polite')" class="btn-3d btn-polite flex-1 py-4 rounded-2xl text-xl font-black uppercase tracking-wider flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-thumbs-up"></i> Log Polite
+                </button>
+                <button onclick="handleMainAction('rude')" class="btn-3d btn-rude flex-1 py-4 rounded-2xl text-xl font-black uppercase tracking-wider flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-thumbs-down"></i> Log Rude
+                </button>
+            </div>
+        </div>
+
+        <!-- History Timeline -->
+        <div class="flex-1 overflow-y-auto no-scrollbar p-4 bg-[#f7f7f7]" id="historyContainer">
+            <h2 class="text-[#afafaf] font-bold uppercase tracking-wider mb-4 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left"></i> History Log
+            </h2>
+            <div id="historyList" class="flex flex-col gap-3 pb-8">
+                <!-- History items injected here via JS -->
+            </div>
+            
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden flex-col items-center justify-center text-[#afafaf] py-10 opacity-70">
+                <i class="fa-solid fa-ghost text-5xl mb-4"></i>
+                <p class="font-bold text-lg">No history yet.</p>
+                <p class="text-sm">Log some behavior above!</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-[#4b4b4b] text-white px-6 py-3 rounded-2xl font-bold shadow-lg transition-all duration-300 translate-y-24 opacity-0 z-50 pointer-events-none flex items-center gap-2">
+        <i class="fa-solid fa-circle-info"></i> <span id="toastMsg">Message here</span>
+    </div>
+
+    <!-- Firebase & Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global State
+        window.appState = {
+            logs: [],
+            user: null,
+            db: null,
+            collectionRef: null,
+            unsubscribe: null,
+            appId: typeof __app_id !== 'undefined' ? __app_id : 'default-kai-behavior-app'
+        };
+
+        // DOM Elements
+        const politeCounterEl = document.getElementById('politeCounter');
+        const rudeCounterEl = document.getElementById('rudeCounter');
+        const noteInputEl = document.getElementById('noteInput');
+        const historyListEl = document.getElementById('historyList');
+        const emptyStateEl = document.getElementById('emptyState');
+        const toastEl = document.getElementById('toast');
+        const toastMsgEl = document.getElementById('toastMsg');
+
+        // Toast Helper
+        window.showToast = (msg, isError = false) => {
+            toastMsgEl.textContent = msg;
+            if(isError) {
+                toastEl.classList.remove('bg-[#4b4b4b]');
+                toastEl.classList.add('bg-[#ff4b4b]');
+            } else {
+                toastEl.classList.add('bg-[#4b4b4b]');
+                toastEl.classList.remove('bg-[#ff4b4b]');
+            }
+            toastEl.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => {
+                toastEl.classList.add('translate-y-24', 'opacity-0');
+            }, 2500);
+        };
+
+        // Setup Firebase
+        async function initFirebase() {
+            try {
+                let firebaseConfig;
+                if (typeof __firebase_config !== 'undefined') {
+                    firebaseConfig = JSON.parse(__firebase_config);
+                } else {
+                    // Fallback to local-only mode if no config exists
+                    console.log("No Firebase config found. Running in local-only memory mode.");
+                    render();
+                    return;
+                }
+
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                window.appState.db = getFirestore(app);
+
+                // Authentication Protocol
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    window.appState.user = user;
+                    if (user) {
+                        setupDataListener();
+                    } else {
+                        if (window.appState.unsubscribe) window.appState.unsubscribe();
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase init error:", error);
+                showToast("Running in offline mode", true);
+                render(); // Render empty state
+            }
+        }
+
+        // Setup Firestore Listener
+        function setupDataListener() {
+            if (!window.appState.user || !window.appState.db) return;
+
+            // STRICT PATH RULE: /artifacts/{appId}/users/{userId}/{collectionName}
+            const path = `artifacts/${window.appState.appId}/users/${window.appState.user.uid}/behavior_logs`;
+            window.appState.collectionRef = collection(window.appState.db, path);
+            
+            // STRICT QUERY RULE: No complex queries, fetch all and sort in memory
+            const q = query(window.appState.collectionRef);
+
+            if (window.appState.unsubscribe) window.appState.unsubscribe();
+
+            window.appState.unsubscribe = onSnapshot(q, (snapshot) => {
+                const fetchedLogs = [];
+                snapshot.forEach(doc => {
+                    fetchedLogs.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Sort in memory (newest first)
+                window.appState.logs = fetchedLogs.sort((a, b) => b.timestamp - a.timestamp);
+                render();
+            }, (error) => {
+                console.error("Data fetch error:", error);
+                showToast("Failed to sync data", true);
+            });
+        }
+
+        // Add a Log Entry
+        window.addLog = async (type, note = '') => {
+            const newLog = {
+                type: type,
+                note: note,
+                timestamp: Date.now()
+            };
+
+            // Trigger visual animation immediately
+            const counterEl = type === 'polite' ? politeCounterEl : rudeCounterEl;
+            counterEl.classList.remove('animate-pop');
+            void counterEl.offsetWidth; // Trigger reflow
+            counterEl.classList.add('animate-pop');
+
+            if (window.appState.collectionRef && window.appState.user) {
+                try {
+                    await addDoc(window.appState.collectionRef, newLog);
+                } catch (err) {
+                    console.error("Error adding log:", err);
+                    showToast("Failed to save entry", true);
+                }
+            } else {
+                // Local fallback
+                newLog.id = 'local_' + Date.now();
+                window.appState.logs.unshift(newLog);
+                render();
+            }
+        };
+
+        // Remove the latest log of a specific type (Minus button functionality)
+        window.removeLatest = async (type) => {
+            const latestLog = window.appState.logs.find(log => log.type === type);
+            if (!latestLog) {
+                showToast(`No ${type} logs to remove.`);
+                return;
+            }
+
+            if (window.appState.db && window.appState.user && !latestLog.id.startsWith('local_')) {
+                try {
+                    const docRef = doc(window.appState.db, `artifacts/${window.appState.appId}/users/${window.appState.user.uid}/behavior_logs`, latestLog.id);
+                    await deleteDoc(docRef);
+                } catch (err) {
+                    console.error("Error deleting log:", err);
+                    showToast("Failed to remove entry", true);
+                }
+            } else {
+                // Local fallback
+                window.appState.logs = window.appState.logs.filter(log => log.id !== latestLog.id);
+                render();
+            }
+        };
+
+        // Delete a specific log from history view
+        window.deleteSpecificLog = async (id) => {
+            if (window.appState.db && window.appState.user && !id.startsWith('local_')) {
+                try {
+                    const docRef = doc(window.appState.db, `artifacts/${window.appState.appId}/users/${window.appState.user.uid}/behavior_logs`, id);
+                    await deleteDoc(docRef);
+                    showToast("Entry deleted");
+                } catch (err) {
+                    console.error("Error deleting specific log:", err);
+                    showToast("Failed to delete", true);
+                }
+            } else {
+                window.appState.logs = window.appState.logs.filter(log => log.id !== id);
+                render();
+                showToast("Entry deleted");
+            }
+        };
+
+        // Main Action Button Handler
+        window.handleMainAction = (type) => {
+            const note = noteInputEl.value.trim();
+            addLog(type, note);
+            noteInputEl.value = ''; // Clear input
+            
+            // Remove focus to hide mobile keyboard instantly
+            noteInputEl.blur();
+        };
+
+        // Export Data
+        window.exportData = () => {
+            if (window.appState.logs.length === 0) {
+                showToast("No data to export");
+                return;
+            }
+            // Strip out document IDs to keep pure JSON data
+            const cleanData = window.appState.logs.map(log => ({
+                type: log.type,
+                note: log.note,
+                timestamp: log.timestamp
+            }));
+            
+            const dataStr = JSON.stringify(cleanData, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Kai_Behavior_Export_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast("Export successful!");
+        };
+
+        // Import Data (Trigger)
+        window.triggerImport = () => {
+            document.getElementById('fileInput').click();
+        };
+
+        // Handle File Import
+        window.handleFileImport = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!Array.isArray(importedData)) throw new Error("Invalid format");
+
+                    let importCount = 0;
+                    // We upload to Firebase if available, otherwise just inject locally
+                    if (window.appState.collectionRef && window.appState.user) {
+                        showToast("Importing data...");
+                        for (const item of importedData) {
+                            if(item.type && item.timestamp) {
+                                await addDoc(window.appState.collectionRef, {
+                                    type: item.type,
+                                    note: item.note || '',
+                                    timestamp: item.timestamp
+                                });
+                                importCount++;
+                            }
+                        }
+                    } else {
+                        // Local import fallback
+                        importedData.forEach(item => {
+                            if(item.type && item.timestamp) {
+                                window.appState.logs.push({
+                                    id: 'local_' + Math.random().toString(36).substr(2, 9),
+                                    type: item.type,
+                                    note: item.note || '',
+                                    timestamp: item.timestamp
+                                });
+                                importCount++;
+                            }
+                        });
+                        window.appState.logs.sort((a, b) => b.timestamp - a.timestamp);
+                        render();
+                    }
+                    showToast(`Imported ${importCount} entries!`);
+                } catch (err) {
+                    console.error(err);
+                    showToast("Invalid JSON file", true);
+                }
+                // Reset file input
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        };
+
+        // UI Render Function
+        function render() {
+            const logs = window.appState.logs;
+
+            // Calculate totals
+            const politeCount = logs.filter(l => l.type === 'polite').length;
+            const rudeCount = logs.filter(l => l.type === 'rude').length;
+
+            // Update DOM counters
+            politeCounterEl.textContent = politeCount;
+            rudeCounterEl.textContent = rudeCount;
+
+            // Render History
+            historyListEl.innerHTML = '';
+            
+            if (logs.length === 0) {
+                emptyStateEl.classList.remove('hidden');
+                emptyStateEl.classList.add('flex');
+            } else {
+                emptyStateEl.classList.add('hidden');
+                emptyStateEl.classList.remove('flex');
+
+                logs.forEach(log => {
+                    const isPolite = log.type === 'polite';
+                    
+                    const card = document.createElement('div');
+                    card.className = "bg-white rounded-2xl border-2 border-[#e5e5e5] p-3 flex items-center gap-4 shadow-sm relative";
+                    
+                    const iconBg = isPolite ? 'bg-[#58cc02]' : 'bg-[#ff4b4b]';
+                    const iconClass = isPolite ? 'fa-thumbs-up' : 'fa-thumbs-down';
+                    const dateObj = new Date(log.timestamp);
+                    const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+                    card.innerHTML = `
+                        <div class="w-12 h-12 rounded-full flex-shrink-0 ${iconBg} text-white flex items-center justify-center text-xl shadow-inner">
+                            <i class="fa-solid ${iconClass}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline mb-1">
+                                <span class="font-black text-[#4b4b4b] uppercase text-sm tracking-wider">
+                                    ${isPolite ? 'Polite Choice' : 'Rude Choice'}
+                                </span>
+                                <span class="text-xs text-[#afafaf] font-bold">
+                                    ${dateStr} at ${timeStr}
+                                </span>
+                            </div>
+                            <p class="text-[#4b4b4b] text-base truncate pr-8 ${log.note ? '' : 'italic text-[#afafaf]'}">
+                                ${log.note || 'No context provided.'}
+                            </p>
+                        </div>
+                        <button onclick="deleteSpecificLog('${log.id}')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#afafaf] hover:text-[#ff4b4b] transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    `;
+                    historyListEl.appendChild(card);
+                });
+            }
+        }
+
+        // Initialize App
+        window.onload = () => {
+            initFirebase();
+        };
+    </script>
+</body>
+</html>
